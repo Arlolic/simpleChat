@@ -27,6 +27,7 @@ public class ChatClient extends AbstractClient
    */
   ChatIF clientUI; 
 
+  String clientID;
   
   //Constructors ****************************************************
   
@@ -38,12 +39,16 @@ public class ChatClient extends AbstractClient
    * @param clientUI The interface type variable.
    */
   
-  public ChatClient(String host, int port, ChatIF clientUI) 
-    throws IOException 
+  public ChatClient(String clientID, String host, int port, ChatIF clientUI) 
   {
     super(host, port); //Call the superclass constructor
+    this.clientID = clientID;
     this.clientUI = clientUI;
-    openConnection();
+    try {
+		openConnection();
+		sendToServer("#login " + clientID);
+	} catch (IOException e) {
+	}
   }
 
   
@@ -66,16 +71,103 @@ public class ChatClient extends AbstractClient
    */
   public void handleMessageFromClientUI(String message)
   {
-    try
-    {
-      sendToServer(message);
-    }
-    catch(IOException e)
-    {
+	if(message.startsWith("#"))
+	{
+		switch(message.split(" ")[0]) {
+			case "#quit":
+				clientUI.display("Bye bye! ");
+				quit();
+				break;
+			case "#logoff":
+				try {
+					closeConnection();
+				} catch (IOException e) {}
+				break;
+			case "#sethost":
+				if(this.isConnected()) {
+					clientUI.display("You are currently connected to a server! ");
+				}
+				else
+					try {
+						this.setHost(message.split(" ")[1]);
+						clientUI.display("Host set to: " + this.getHost());
+					}
+					catch(Exception e) {
+						clientUI.display("Please add the new host name after #sethost.");
+					}
+				break;
+			case "#setport":
+				if(this.isConnected()) {
+					clientUI.display("You are currently connected to a server! ");
+				}
+				else
+					try {
+						this.setPort(Integer.parseInt(message.split(" ")[1]));
+						clientUI.display("Port set to: " + this.getPort());
+					}
+					catch(Exception e) {
+						clientUI.display("Please add the new port as a number after #setport.");
+					}
+				break;
+			case "#login":
+				if(this.isConnected()) {
+				    try
+				    {
+				      sendToServer(message);
+				    }
+				    catch(IOException e)
+				    {
+				      clientUI.display
+				        ("Could not send message to server.  Terminating client.");
+				      quit();
+				    }
+				}
+				else
+					try {
+						this.openConnection();
+					    sendToServer(message);
+					} catch (IOException e) {clientUI.display("Could not connect to the server with this id");}
+				break;
+			case "#gethost":
+				clientUI.display("The current host name is : " + this.getHost());
+				break;
+			case "#getport":
+				clientUI.display("The current port is : " + this.getPort());
+				break;
+			default:
+				clientUI.display("This command does not exist.");
+				break;
+				
+		}
+	}
+	
+	else {
+	    try
+	    {
+	      sendToServer(message);
+	    }
+	    catch(IOException e)
+	    {
+	      clientUI.display
+	        ("Could not send message to server.  Terminating client.");
+	      quit();
+	    }
+	}
+  }
+  
+  
+  @Override
+  protected void connectionException(Exception exception) {
       clientUI.display
-        ("Could not send message to server.  Terminating client.");
-      quit();
-    }
+      ("Awaiting command");
+  }
+  /* 
+   * This method handles the closure of the connection with the server
+   */
+  @Override
+  public void connectionClosed() {
+      clientUI.display
+        ("The connection to the server has been lost. ");
   }
   
   /**
